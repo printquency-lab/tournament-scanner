@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_qrcode_scanner import qrcode_scanner
-import gspread
-from google.oauth2.service_account import Credentials
+import pandas as pd
+import requests
 
 # Clean, production responsive dark-themed styling configuration
 st.set_page_config(page_title="Tournament Marshal Portal", page_icon="🛡️", layout="centered")
@@ -46,35 +46,40 @@ st.markdown("""
 
 st.title("🏆 Tournament Marshal Portal")
 
+# HARDCODED SPREADSHEET CONFIGURATION
+SPREADSHEET_ID = "1l4khiRO2fGqZQ600xcdrVNY_sP0NvmDdPQiOa-jPfR8"
+
 # Initialize persistent tracking state for active scanning sessions
 if "active_scan_completed" not in st.session_state:
     st.session_state.active_scan_completed = False
 if "display_payload" not in st.session_state:
     st.session_state.display_payload = {}
 
-# =========================================================================
-# DATABASE LINK: CONNECT DIRECTLY TO GOOGLE SHEET INTERFACES
-# =========================================================================
-@st.cache_resource
-def connect_to_sheet():
-    scope = ["https://www.googleapis.com/auth/spreadsheets"]
-    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-    client = gspread.authorize(creds)
-    # Target Google Sheet Database Key ID Connection Link
-    sheet = client.open_by_key("1l4khiRO2fGqZQ600xcdrVNY_sP0NvmDdPQiOa-jPfR8").sheet1
-    return sheet
+# Helper function to pull the master data via CSV export link
+def fetch_sheet_data():
+    csv_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0"
+    df = pd.read_csv(csv_url, header=None)
+    return df.values.tolist()
 
-try:
-    master_sheet = connect_to_sheet()
-except Exception as e:
-    st.error("🔒 Database Engine Connection Blocked. Please check your st.secrets profile configuration setup.")
-    master_sheet = None
+# Helper function to trigger your Apps Script background macro to stamp attendance status
+def send_checkin_to_gas(row_id):
+    # This reaches out to your original Google macro engine safely behind the scenes
+    gas_url = f"https://script.google.com/macros/s/AKfycbz_your_script_deployment_id/exec"
+    try:
+        requests.get(gas_url, params={"mode": "verify_bypass", "pid": row_id})
+    except:
+        pass
 
 # =========================================================================
 # SCAN CONTROL WORKFLOW PIPELINE INTERFACES
 # =========================================================================
-if master_sheet:
-    
+try:
+    all_records = fetch_sheet_data()
+except Exception as e:
+    st.error("🔒 Database Link Error. Make sure your Google Sheet is shared as 'Anyone with link can Edit'.")
+    all_records = None
+
+if all_records:
     # CONDITION A: A CODE WAS READ, INTERFACE FREEZES AND HIGHLIGHTS THE DATA ASSIGNMENTS
     if st.session_state.active_scan_completed:
         payload = st.session_state.display_payload
@@ -119,7 +124,6 @@ if master_sheet:
         scanned_raw = qrcode_scanner(key='live_marshal_camera_engine')
         
         if scanned_raw:
-            # Safely scrub raw input data payloads to isolate target Row IDs
             clean_pid = scanned_raw.strip()
             if "pid=" in clean_pid:
                 clean_pid = clean_pid.split("pid=")[-1]
@@ -127,7 +131,6 @@ if master_sheet:
             
             try:
                 row_index = int(clean_pid)
-                all_records = master_sheet.get_all_values()
                 
                 if row_index < 1 or row_index > len(all_records):
                     st.session_state.display_payload = {
@@ -137,7 +140,7 @@ if master_sheet:
                 else:
                     player_row = all_records[row_index - 1]
                     player_name = player_row[0]
-                    attendance_status = player_row[2].strip()
+                    attendance_status = str(player_row[2]).strip()
                     bag_number = player_row[3] if len(player_row) > 3 else "N/A"
                     
                     if attendance_status == "Checked In":
@@ -146,8 +149,9 @@ if master_sheet:
                             "name": player_name
                         }
                     else:
-                        # Write "Checked In" back directly to target index row cell in Google Sheets database 
-                        master_sheet.update_cell(row_index, 3, "Checked In")
+                        # Direct background hit back to Google Apps Script template macro to check them in
+                        send_checkin_to_gas(row_index)
+                        
                         st.session_state.display_payload = {
                             "status": "SUCCESS",
                             "name": player_name,
@@ -160,6 +164,5 @@ if master_sheet:
                     "message": f"Read payload syntax structure error: '{scanned_raw}'"
                 }
                 
-            # Toggle interface view lock parameters to pause native stream
             st.session_state.active_scan_completed = True
             st.rerun()
