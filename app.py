@@ -64,7 +64,7 @@ def fetch_sheet_data():
 # Helper function to trigger your Apps Script background macro to stamp attendance status
 def send_checkin_to_gas(row_id):
     # This reaches out to your original Google macro engine safely behind the scenes
-    gas_url = f"https://script.google.com/macros/s/AKfycbz_your_script_deployment_id/exec"
+    gas_url = f"https://script.google.com/macros/s/AKfycbztTgSdVaHlNDBCE0SjwMnx9nu_aGOzk7afvP1whuhqZ2gH6p_zPW0CITwoOym21lg5Hw/exec"
     try:
         requests.get(gas_url, params={"mode": "verify_bypass", "pid": row_id})
     except:
