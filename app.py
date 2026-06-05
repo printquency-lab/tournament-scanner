@@ -26,7 +26,7 @@ st.markdown("""
 st.title("🏆 Tournament Marshal Portal")
 
 # Configuration
-GAS_URL = "https://script.google.com/macros/s/AKfycbyG-9V9CjBci8q6RnFL1fq2tXiISxLNHrI0tDn0o6RbV7bYsTYagX4raQCR4ZIbnSYgBw/exec" # <--- PASTE YOUR DEPLOYED URL HERE
+GAS_URL = "https://script.google.com/macros/s/AKfycbxWasvts-sTpJijDUC5K0KKdLuclSt89j3YxE5qO8g4jyYqq7sd4i9lduGpcfrd9AO20w/exec" # <--- PASTE YOUR DEPLOYED URL HERE
 SPREADSHEET_ID = "1l4khiRO2fGqZQ600xcdrVNY_sP0NvmDdPQiOa-jPfR8"
 
 # State Management
