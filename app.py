@@ -3,166 +3,92 @@ from streamlit_qrcode_scanner import qrcode_scanner
 import pandas as pd
 import requests
 
-# Clean, production responsive dark-themed styling configuration
+# 1. Configuration
 st.set_page_config(page_title="Tournament Marshal Portal", page_icon="🛡️", layout="centered")
+
+# REPLACE THIS WITH YOUR NEW WEB APP URL AFTER DEPLOYING CODE.GS
+GAS_URL = "YOUR_NEW_DEPLOYED_WEB_APP_URL_HERE"
+SPREADSHEET_ID = "1l4khiRO2fGqZQ600xcdrVNY_sP0NvmDdPQiOa-jPfR8"
 
 st.markdown("""
     <style>
     .main { background-color: #111827; }
     h2 { color: #60a5fa; text-align: center; font-weight: 700; margin-bottom: 5px; }
-    p.sub { color: #9ca3af; text-align: center; font-size: 14px; margin-bottom: 25px; }
-    div.stButton > button:first-child {
-        background-color: #10b981 !important;
-        color: white !important;
-        font-size: 20px !important;
-        font-weight: bold !important;
-        padding: 18px 20px !important;
-        border-radius: 10px !important;
-        border: none !important;
-        width: 100% !important;
-        box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
-        transition: background-color 0.2s;
-    }
-    div.stButton > button:first-child:hover {
-        background-color: #059669 !important;
-    }
-    .badge-container {
-        background: #1f2937;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #374151;
-        text-align: center;
-        margin-top: 15px;
-    }
-    .badge-number {
-        font-size: 42px;
-        font-weight: 800;
-        color: #facc15;
-        letter-spacing: 1px;
-        margin: 10px 0;
-    }
+    div.stButton > button:first-child { background-color: #10b981 !important; color: white !important; font-weight: bold; width: 100% !important; padding: 15px !important; }
+    .badge-container { background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center; margin-top: 15px; }
+    .badge-number { font-size: 32px; font-weight: 800; color: #facc15; margin: 10px 0; }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("🏆 Tournament Marshal Portal")
 
-# HARDCODED SPREADSHEET ID FOR YOUR DATABASE
-SPREADSHEET_ID = "1l4khiRO2fGqZQ600xcdrVNY_sP0NvmDdPQiOa-jPfR8"
-# YOUR LIVE DEPLOYED GOOGLE APPS SCRIPT URL LINK
-GAS_URL = "https://script.google.com/macros/s/AKfycbztTgSdVaHlNDBCE0SjwMnx9nu_aGOzk7afvP1whuhqZ2gH6p_zPW0CITwoOym21lg5Hw/exec"
-
-# Initialize persistent tracking state for active scanning sessions
+# 2. State Management
 if "active_scan_completed" not in st.session_state:
     st.session_state.active_scan_completed = False
 if "display_payload" not in st.session_state:
     st.session_state.display_payload = {}
 
-# Helper function to pull the master data via public CSV export link
+# 3. Data Functions
 def fetch_sheet_data():
     csv_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0"
     df = pd.read_csv(csv_url, header=None)
     return df.values.tolist()
 
-# Helper function to trigger your Apps Script background macro to stamp attendance status
+# This calls your NEW Code.gs verifyTicket function
 def send_checkin_to_gas(row_id):
     try:
         requests.get(GAS_URL, params={"mode": "verify_bypass", "pid": row_id}, timeout=10)
     except:
         pass
 
-# =========================================================================
-# SCAN CONTROL WORKFLOW PIPELINE INTERFACES
-# =========================================================================
+# 4. App Logic
 try:
     all_records = fetch_sheet_data()
-except Exception as e:
-    st.error("🔒 Database Link Error. Make sure your Google Sheet is shared as 'Anyone with link can Edit'.")
+except:
+    st.error("🔒 Database Error. Ensure Sheet is set to 'Anyone with link can view'.")
     all_records = None
 
 if all_records:
-    # CONDITION A: A CODE WAS READ, INTERFACE FREEZES AND HIGHLIGHTS THE DATA ASSIGNMENTS
     if st.session_state.active_scan_completed:
         payload = st.session_state.display_payload
         
         if payload["status"] == "SUCCESS":
-            st.balloons()
-            st.success(f"### ✓ Verified & Checked In Successfully!")
+            st.success("### ✓ Verified & Checked In Successfully!")
             st.markdown(f"""
                 <div class="badge-container">
-                    <p style="margin:0; font-size:16px; color:#9ca3af;">ASSIGNED EQUIPMENT DESTINATION</p>
-                    <div class="badge-number">BAG #{payload['bag'] if payload['bag'] else 'N/A'}</div>
-                    <p style="margin:0; font-size:18px; color:#ffffff; font-weight:600;">Player: {payload['name']}</p>
+                    <p style="color:#9ca3af;">PLAYER NAME</p>
+                    <div class="badge-number">{payload['name']}</div>
                 </div>
-                <br>
             """, unsafe_allow_html=True)
-            
         elif payload["status"] == "DUPLICATE":
-            st.warning("### ⚠️ Duplicate Scan Warning Notice")
-            st.markdown(f"""
-                <div class="badge-container" style="border-color: #f59e0b;">
-                    <p style="margin:0; font-size:18px; color:#fef08a; font-weight:bold;">Already Logged in Venue</p>
-                    <p style="margin:5px 0 0 0; font-size:16px; color:#ffffff;"><strong>Player:</strong> {payload['name']}</p>
-                    <p style="margin:5px 0 0 0; font-size:13px; color:#9ca3af;">This attendee's pass code credentials were verified earlier.</p>
-                </div>
-                <br>
-            """, unsafe_allow_html=True)
-            
-        elif payload["status"] == "NOT_FOUND":
-            st.error(f"### ❌ Ticket Invalid\n\n{payload['message']}")
-            
-        # USER ACTION MANUAL TRIGGER OVERRIDE: Clear screen layouts and restart viewfinder stream
+            st.warning(f"### ⚠️ Already Checked In\nPlayer: {payload['name']}")
+        
         if st.button("📷 Scan Next Player"):
             st.session_state.active_scan_completed = False
-            st.session_state.display_payload = {}
             st.rerun()
 
-    # CONDITION B: VIEWPORT SCANNER INTERFACE RUNNING STREAM ACTIVELY ON LOAD
     else:
-        st.markdown('<p class="sub">Point your device camera directly at the participant\'s QR badge credential ticket pass:</p>', unsafe_allow_html=True)
-        
-        # Deploy unblocked, native top-level camera element viewport hook
+        st.markdown("<p style='text-align:center;'>Point camera at the QR code</p>", unsafe_allow_html=True)
         scanned_raw = qrcode_scanner(key='live_marshal_camera_engine')
         
         if scanned_raw:
-            clean_pid = scanned_raw.strip()
-            if "pid=" in clean_pid:
-                clean_pid = clean_pid.split("pid=")[-1]
-            clean_pid = clean_pid.replace("ROW-", "")
-            
+            # PARSING: Extract row number from "FDG26-1"
             try:
-                row_index = int(clean_pid)
+                # Get the number after the dash
+                row_index = int(scanned_raw.split("-")[1])
                 
-                if row_index < 1 or row_index > len(all_records):
-                    st.session_state.display_payload = {
-                        "status": "NOT_FOUND",
-                        "message": f"Scanned row address index #{row_index} cannot be located inside data registers."
-                    }
+                # Fetch row (adjust index if header exists)
+                player_row = all_records[row_index] 
+                player_name = f"{player_row[1]} {player_row[0]}"
+                attendance_status = str(player_row[6]).strip()
+
+                if attendance_status == "Checked-In":
+                    st.session_state.display_payload = {"status": "DUPLICATE", "name": player_name}
                 else:
-                    player_row = all_records[row_index - 1]
-                    player_name = player_row[0]
-                    attendance_status = str(player_row[2]).strip()
-                    bag_number = player_row[3] if len(player_row) > 3 else "N/A"
-                    
-                    if attendance_status == "Checked In":
-                        st.session_state.display_payload = {
-                            "status": "DUPLICATE",
-                            "name": player_name
-                        }
-                    else:
-                        # Direct background hit back to your deployed Google Apps Script URL link
-                        send_checkin_to_gas(row_index)
-                        
-                        st.session_state.display_payload = {
-                            "status": "SUCCESS",
-                            "name": player_name,
-                            "bag": bag_number
-                        }
-                        
-            except ValueError:
-                st.session_state.display_payload = {
-                    "status": "NOT_FOUND",
-                    "message": f"Read payload syntax structure error: '{scanned_raw}'"
-                }
+                    send_checkin_to_gas(row_index)
+                    st.session_state.display_payload = {"status": "SUCCESS", "name": player_name}
                 
-            st.session_state.active_scan_completed = True
-            st.rerun()
+                st.session_state.active_scan_completed = True
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error reading code: {e}")
