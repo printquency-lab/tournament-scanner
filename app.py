@@ -7,7 +7,7 @@ import requests
 st.set_page_config(page_title="Tournament Marshal Portal", page_icon="🛡️", layout="centered")
 
 # REPLACE THIS WITH YOUR NEW WEB APP URL AFTER DEPLOYING CODE.GS
-GAS_URL = "YOUR_NEW_DEPLOYED_WEB_APP_URL_HERE"
+GAS_URL = "https://script.google.com/macros/s/AKfycbzgbpXox0M1lOWxuQBwFRrh1o-y1M5YrvgriwCgcNe9BvhXh3QIRnHTunIFA98eEgVO0A/exec"
 SPREADSHEET_ID = "1l4khiRO2fGqZQ600xcdrVNY_sP0NvmDdPQiOa-jPfR8"
 
 st.markdown("""
