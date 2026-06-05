@@ -46,8 +46,10 @@ st.markdown("""
 
 st.title("🏆 Tournament Marshal Portal")
 
-# HARDCODED SPREADSHEET CONFIGURATION
+# HARDCODED SPREADSHEET ID FOR YOUR DATABASE
 SPREADSHEET_ID = "1l4khiRO2fGqZQ600xcdrVNY_sP0NvmDdPQiOa-jPfR8"
+# YOUR LIVE DEPLOYED GOOGLE APPS SCRIPT URL LINK
+GAS_URL = "https://script.google.com/macros/s/AKfycbztTgSdVaHlNDBCE0SjwMnx9nu_aGOzk7afvP1whuhqZ2gH6p_zPW0CITwoOym21lg5Hw/exec"
 
 # Initialize persistent tracking state for active scanning sessions
 if "active_scan_completed" not in st.session_state:
@@ -55,7 +57,7 @@ if "active_scan_completed" not in st.session_state:
 if "display_payload" not in st.session_state:
     st.session_state.display_payload = {}
 
-# Helper function to pull the master data via CSV export link
+# Helper function to pull the master data via public CSV export link
 def fetch_sheet_data():
     csv_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0"
     df = pd.read_csv(csv_url, header=None)
@@ -63,10 +65,8 @@ def fetch_sheet_data():
 
 # Helper function to trigger your Apps Script background macro to stamp attendance status
 def send_checkin_to_gas(row_id):
-    # This reaches out to your original Google macro engine safely behind the scenes
-    gas_url = f"https://script.google.com/macros/s/AKfycbztTgSdVaHlNDBCE0SjwMnx9nu_aGOzk7afvP1whuhqZ2gH6p_zPW0CITwoOym21lg5Hw/exec"
     try:
-        requests.get(gas_url, params={"mode": "verify_bypass", "pid": row_id})
+        requests.get(GAS_URL, params={"mode": "verify_bypass", "pid": row_id}, timeout=10)
     except:
         pass
 
@@ -149,7 +149,7 @@ if all_records:
                             "name": player_name
                         }
                     else:
-                        # Direct background hit back to Google Apps Script template macro to check them in
+                        # Direct background hit back to your deployed Google Apps Script URL link
                         send_checkin_to_gas(row_index)
                         
                         st.session_state.display_payload = {
